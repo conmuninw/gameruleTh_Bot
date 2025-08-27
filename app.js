@@ -15,6 +15,8 @@ const app = express();
 app.use(express.json({ verify: verifyRequestSignature }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: '*' }));
+// ✅ ให้ Express เสิร์ฟไฟล์ใน public/
+app.use(express.static(path.join(__dirname, 'public')));
 
 function verifyRequestSignature(req, res, buf) {
   const signature = req.headers["x-hub-signature-256"];
