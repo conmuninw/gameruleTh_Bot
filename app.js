@@ -29,10 +29,7 @@ function verifyRequestSignature(req, res, buf) {
 
 console.log("MONGO_URI from env:", process.env.MONGO_URI);  // ✅ เช็คว่ามีค่าไหม
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("✅ MongoDB connected"))
 .catch(err => console.error("❌ MongoDB Error:", err));
 
