@@ -162,7 +162,7 @@ class TransactionService {
       }
 
       const totalAmount = transaction.gameDetails.price + 50;
-      const qrCodePageUrl = `${'https://f141974b9c5d.ngrok-free.app'}/qrcode/${transactionId}`;
+      const qrCodePageUrl = `${'https://web-production-950d.up.railway.app'}/qrcode/${transactionId}`;
       // process.env.BASE_URL ||
       
       // ส่งข้อความเกี่ยวกับการชำระเงิน (ไม่มีปุ่มส่งหลักฐาน)
@@ -574,7 +574,7 @@ class TransactionService {
           {
             type: "web_url",
             title: "📱 เปิดหน้าเว็บ",
-            url: `${'https://f141974b9c5d.ngrok-free.app'}/seller-payment/${transaction.transactionId}`,
+            url: `${'https://web-production-950d.up.railway.app'}/seller-payment/${transaction.transactionId}`,
             webview_height_ratio: "tall"
           }
         ]
