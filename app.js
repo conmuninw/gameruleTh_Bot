@@ -26,12 +26,15 @@ function verifyRequestSignature(req, res, buf) {
 }
 
 // เชื่อมต่อ MongoDB
+
+console.log("MONGO_URI from env:", process.env.MONGO_URI);  // ✅ เช็คว่ามีค่าไหม
+
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
 })
-.then(() => console.log('✅ MongoDB Connected'))
-.catch(err => console.error('❌ MongoDB Error:', err));
+.then(() => console.log("✅ MongoDB connected"))
+.catch(err => console.error("❌ MongoDB Error:", err));
 
 // Routes
 app.use('/webhook', require('./routes/webhook'));
