@@ -637,7 +637,9 @@ app.post('/api/admin/logout', adminAuth, (req, res) => {
     res.json({ message: 'Logged out successfully' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+mongoose.connection.once('open', () => {
+  console.log('DB ready');
+  app.listen(process.env.PORT || 3000, () => {
+    console.log('Server running...');
+  });
 });
