@@ -49,9 +49,7 @@ app.get('/qrcode/:transactionId', async (req, res) => {
     
     const promptPayNumber = process.env.ADMIN_PROMPTPAY_NUMBER || '0645265274';
     const amount = transaction.paymentAmount || (transaction.gameDetails.price + 50);
-    
-    // ใช้ QuickChart.io สำหรับสร้าง QR Code
-    const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(`|${amount}|${promptPayNumber}|${transactionId}`)}&size=300&margin=1`;
+    const qrCodeUrl = `https://promptpay.io/${promptPayNumber}/${amount}`;
     
     res.send(`
       <!DOCTYPE html>
@@ -244,7 +242,7 @@ app.get('/seller-payment/:transactionId', async (req, res) => {
 
     const amount = transaction.gameDetails.price;
     const promptPayNumber = transaction.sellerBankInfo.promptPayNumber;
-    const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(`|${amount}|${promptPayNumber}|${transactionId}`)}&size=300&margin=1`;
+    const qrCodeUrl = `https://promptpay.io/${promptPayNumber}/${amount}`;
     
     res.send(`
       <!DOCTYPE html>
