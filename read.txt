@@ -1,0 +1,20 @@
+src/
+├── controllers/
+│   ├── facebookWebhookController.js  # จัดการ webhook จาก Facebook
+│   ├── mediationController.js        # จัดการ mediation logic
+│   └── matchingController.js         # จัดการ matching ผู้ซื้อ-ผู้ขาย
+├── services/
+│   ├── facebookService.js            # บริการเกี่ยวกับ Facebook API
+│   ├── mediationService.js           # logic การ mediate
+│   ├── matchingService.js            # logic การ matching
+│   └── notificationService.js        # ส่ง notifications
+├── models/
+│   ├── Session.js                    # ข้อมูล session การ mediate
+│   ├── User.js                       # ข้อมูลผู้ใช้
+│   └── Conversation.js               # ข้อมูลการสนทนา
+├── routes/
+│   └── webhook.js                    # route สำหรับ webhook
+├── middleware/
+│   ├── auth.js                       # ตรวจสอบ verification Facebook
+│   └── validation.js                 # validate webhook data
+└── app.js

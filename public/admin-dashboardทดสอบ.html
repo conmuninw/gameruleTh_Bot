@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - ระบบจัดการธุรกรรม</title>
+    <link rel="stylesheet" href="./css/admin.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🛡️ Admin Panel</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+                    <i class="fas fa-chart-line"></i> ภาพรวมระบบ
+                </a>
+                <a href="#transactions" class="nav-item" data-tab="transactions">
+                    <i class="fas fa-exchange-alt"></i> จัดการธุรกรรม
+                </a>
+                <a href="#payments" class="nav-item" data-tab="payments">
+                    <i class="fas fa-money-bill-wave"></i> ตรวจสอบการชำระเงิน
+                </a>
+                <a href="#seller-payments" class="nav-item" data-tab="seller-payments">
+                    <i class="fas fa-qrcode"></i> QR Code จ่ายเงิน
+                </a>
+                <a href="#users" class="nav-item" data-tab="users">
+                    <i class="fas fa-users"></i> ผู้ใช้งาน
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="content-header">
+                <div class="header-title">
+                    <h1 id="pageTitle">ภาพรวมระบบ</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="user-info">
+                        <span>Admin: <strong id="adminName">ผู้ดูแลระบบ</strong></span>
+                    </div>
+                    <div class="notification-bell">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-count" id="notificationCount">0</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="content-wrapper">
+                <!-- Dashboard Tab -->
+                <div id="dashboard-tab" class="tab-content active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon income">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalIncome">0 บาท</h3>
+                                <p>รายได้ทั้งหมด</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon transactions">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalTransactions">0</h3>
+                                <p>ธุรกรรมทั้งหมด</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon pending">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="pendingTransactions">0</h3>
+                                <p>รอตรวจสอบ</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon users">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalUsers">0</h3>
+                                <p>ผู้ใช้งาน</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>สถิติธุรกรรมรายวัน</h3>
+                            <canvas id="dailyTransactionsChart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>สถานะธุรกรรม</h3>
+                            <canvas id="statusPieChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="recent-activities">
+                        <h3>กิจกรรมล่าสุด</h3>
+                        <div id="activitiesList" class="activities-list">
+                            <div class="activity-item loading">กำลังโหลด...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transactions Tab -->
+                <div id="transactions-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>จัดการธุรกรรม</h2>
+                        <div class="filter-controls">
+                            <select id="statusFilter">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="waiting_payment">รอชำระเงิน</option>
+                                <option value="payment_verification">รอตรวจสอบ</option>
+                                <option value="paid">ชำระเงินแล้ว</option>
+                                <option value="delivering">กำลังส่ง</option>
+                                <option value="completed">เสร็จสิ้น</option>
+                                <option value="cancelled">ยกเลิก</option>
+                            </select>
+                            <input type="date" id="dateFilter">
+                            <button class="btn-filter" onclick="loadTransactions()">
+                                <i class="fas fa-filter"></i> กรอง
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table id="transactionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Transaction ID</th>
+                                    <th>ผู้ขาย</th>
+                                    <th>ผู้ซื้อ</th>
+                                    <th>เกม</th>
+                                    <th>ราคา</th>
+                                    <th>สถานะ</th>
+                                    <th>วันที่สร้าง</th>
+                                    <th>การจัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsBody">
+                                <tr><td colspan="8">กำลังโหลดข้อมูล...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination">
+                        <button id="prevPage" class="btn-pagination">← ก่อนหน้า</button>
+                        <span id="pageInfo">หน้า 1</span>
+                        <button id="nextPage" class="btn-pagination">ถัดไป →</button>
+                    </div>
+                </div>
+
+                <!-- Payments Tab -->
+                <div id="payments-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>ตรวจสอบการชำระเงิน</h2>
+                    </div>
+                    <div id="paymentVerificationList" class="verification-list">
+                        <div class="verification-item loading">กำลังโหลด...</div>
+                    </div>
+                </div>
+
+                <!-- Seller Payments Tab -->
+                <div id="seller-payments-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>QR Code จ่ายเงินให้ผู้ขาย</h2>
+                    </div>
+                    <div id="sellerPaymentsList" class="seller-payments-list">
+                        <div class="payment-item loading">กำลังโหลด...</div>
+                    </div>
+                </div>
+
+                <!-- Users Tab -->
+                <div id="users-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>จัดการผู้ใช้งาน</h2>
+                    </div>
+                    <div class="table-container">
+                        <table id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th>User ID</th>
+                                    <th>ประเภท</th>
+                                    <th>จำนวนธุรกรรม</th>
+                                    <th>ยอดรวม</th>
+                                    <th>วันที่สมัคร</th>
+                                    <th>สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersBody">
+                                <tr><td colspan="6">กำลังโหลดข้อมูล...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Templates -->
+    <div id="transactionModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>รายละเอียดธุรกรรม</h3>
+            <div id="transactionDetails"></div>
+        </div>
+    </div>
+
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>ตรวจสอบการชำระเงิน</h3>
+            <div id="paymentDetails"></div>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmPayment()">
+                    <i class="fas fa-check"></i> ยืนยันการชำระเงิน
+                </button>
+                <button class="btn-danger" onclick="rejectPayment()">
+                    <i class="fas fa-times"></i> ปฏิเสธ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./js/admin-dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin Dashboard — Real-time Monitoring</title>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Socket.IO client -->
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+<style>
+  /* ---- THEME: soft / comfortable ---- */
+  :root{
+    --bg: #f4f8fb;
+    --card: #ffffff;
+    --muted: #6b7280;
+    --primary: #2065d1;
+    --accent: #2dd4bf;
+    --success: #16a34a;
+    --danger: #ef4444;
+    --glass: rgba(255,255,255,0.85);
+    --shadow: 0 8px 20px rgba(15,23,42,0.06);
+    --radius: 12px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:20px;background:linear-gradient(180deg,#eef6ff,#f7fbfd);
+    font-family: "Inter", "Noto Sans Thai", system-ui, -apple-system, Roboto, "Segoe UI", Arial;
+    color:#0f172a;
+  }
+  .wrap{max-width:1200px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
+  .brand{display:flex;flex-direction:column}
+  .brand h1{margin:0;font-size:20px;color:var(--primary)}
+  .brand p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+  .controls{display:flex;gap:8px;align-items:center}
+  .btn{background:var(--primary);color:white;padding:8px 12px;border-radius:10px;border:none;cursor:pointer;box-shadow:var(--shadow)}
+  .btn.secondary{background:#eef2ff;color:var(--primary);border:1px solid rgba(32,101,209,0.08)}
+  /* grid */
+  .grid{display:grid;gap:14px}
+  @media(min-width:980px){.grid.cols-4{grid-template-columns:repeat(4,1fr)}.grid.cols-2{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);border:1px solid rgba(15,23,42,0.04)}
+  .stat .label{font-size:12px;color:var(--muted)}
+  .stat .num{font-size:20px;font-weight:700;color:#0b1220;margin-top:6px}
+  .small{font-size:12px;color:var(--muted)}
+  /* search/filter row */
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+  .filter-row input[type="text"], .filter-row select{padding:8px 10px;border-radius:10px;border:1px solid rgba(15,23,42,0.08);min-width:160px;background:transparent}
+  .filter-row .small-muted{font-size:12px;color:var(--muted)}
+  /* table */
+  table{width:100%;border-collapse:collapse;background:transparent}
+  thead th{text-align:left;padding:10px 12px;font-size:13px;color:#374151;border-bottom:1px solid rgba(15,23,42,0.06)}
+  tbody tr{background:var(--card);border-radius:8px;margin-bottom:8px}
+  tbody td{padding:12px;background:transparent;border-bottom:1px solid rgba(15,23,42,0.03);vertical-align:middle}
+  .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px}
+  .status-badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px}
+  .st-wait{background:#fff7ed;color:#92400e}
+  .st-paid{background:#eff6ff;color:#1e40af}
+  .st-deliv{background:#f3e8ff;color:#5b21b6}
+  .st-complete{background:#ecfdf5;color:#065f46}
+  .st-cancel{background:#fff1f2;color:#7f1d1d}
+  /* transaction row card style */
+  .tx-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;align-items:center;padding:8px;border-radius:10px;border:1px solid rgba(15,23,42,0.03);background:linear-gradient(180deg, #ffffff,#fbfdff)}
+  .tx-id{font-weight:700;color:#0b1220}
+  .tx-meta{font-size:13px;color:var(--muted)}
+  .tx-actions{display:flex;gap:8px;justify-content:flex-end}
+  /* activities */
+  .activities{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;padding-right:6px}
+  .act-item{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;background:linear-gradient(180deg,#ffffff,#fbfdff);border:1px solid rgba(15,23,42,0.03)}
+  .act-item .icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(180deg,#eef2ff,#ffffff);display:flex;align-items:center;justify-content:center;color:var(--primary);font-weight:700}
+  .muted{color:var(--muted)}
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(9,10,12,0.35);display:none;align-items:center;justify-content:center;padding:20px;z-index:999}
+  .modal{background:var(--card);border-radius:12px;padding:18px;max-width:720px;width:100%;box-shadow:var(--shadow)}
+  .modal .close{float:right;cursor:pointer;border:none;background:transparent;font-size:18px}
+  .empty{padding:24px;text-align:center;color:var(--muted);border-radius:8px;border:1px dashed rgba(15,23,42,0.04);background:linear-gradient(180deg,#ffffff,#fbfdff)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Admin Dashboard — Real-time Monitoring</h1>
+      <p class="small muted">ติดตามธุรกรรมแบบเรียลไทม์ — ไม่มีปุ่มยืนยัน/ปฏิเสธ</p>
+    </div>
+
+    <div class="controls">
+      <div class="small-muted">Net fee: <strong>฿50 / completed transaction</strong></div>
+      <button class="btn secondary" id="btnRefresh">รีเฟรช</button>
+    </div>
+  </header>
+
+  <!-- summary cards -->
+  <div class="grid cols-4">
+    <div class="card stat">
+      <div class="label">ธุรกรรมทั้งหมด</div>
+      <div class="num" id="totalTx">0</div>
+      <div class="small muted">รวมทุกรายการ</div>
+    </div>
+
+    <div class="card stat">
+      <div class="label">รอตรวจสอบ</div>
+      <div class="num" id="pendingTx">0</div>
+      <div class="small muted">status = payment_verification</div>
+    </div>
+
+    <div class="card stat">
+      <div class="label">สำเร็จแล้ว</div>
+      <div class="num" id="completedTx">0</div>
+      <div class="small muted">status = completed</div>
+    </div>
+
+    <div class="card stat">
+      <div class="label">รายรับสุทธิ (ระบบ)</div>
+      <div class="num" id="netIncome">฿0</div>
+      <div class="small muted">50฿ × completed</div>
+    </div>
+  </div>
+
+  <!-- charts -->
+  <div class="grid cols-2" style="margin-top:14px">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>ธุรกรรมรายวัน (7 วัน)</strong><div class="small muted">อัปเดตรายวัน</div></div>
+        <div class="small muted">Live</div>
+      </div>
+      <div style="margin-top:10px"><canvas id="dailyChart" height="120"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>สัดส่วนสถานะ</strong><div class="small muted">อัปเดตตามสถานะ</div></div>
+        <div class="small muted">Live</div>
+      </div>
+      <div style="margin-top:10px"><canvas id="statusChart" height="120"></canvas></div>
+    </div>
+  </div>
+
+  <!-- filters -->
+  <div class="filter-row">
+    <input id="q" type="text" placeholder="ค้นหา transactionId, buyerId, sellerId..." />
+    <select id="statusFilter">
+      <option value="all">สถานะทั้งหมด</option>
+      <option value="waiting_buyer">รอผู้ซื้อ</option>
+      <option value="waiting_payment">รอชำระเงิน</option>
+      <option value="payment_verification">รอตรวจสอบ</option>
+      <option value="paid">ชำระเงินแล้ว</option>
+      <option value="delivering">กำลังส่ง</option>
+      <option value="awaiting_seller_payment">รอโอนให้ผู้ขาย</option>
+      <option value="completed">เสร็จสิ้น</option>
+      <option value="cancelled">ยกเลิก</option>
+    </select>
+
+    <select id="sortBy">
+      <option value="createdAt_desc">ใหม่สุด → เก่าสุด</option>
+      <option value="createdAt_asc">เก่าสุด → ใหม่สุด</option>
+      <option value="price_desc">ราคา มาก → น้อย</option>
+      <option value="price_asc">ราคา น้อย → มาก</option>
+    </select>
+
+    <div class="small muted" id="liveIndicator">Realtime: <strong>Socket</strong></div>
+  </div>
+
+  <!-- transaction list -->
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>รายการธุรกรรม (หน้า 1)</strong>
+      <div class="small muted">เรียงจาก: <span id="currentSort">ใหม่สุด → เก่าสุด</span></div>
+    </div>
+
+    <div id="txList" style="display:flex;flex-direction:column;gap:8px">
+      <div class="empty">กำลังโหลดข้อมูลธุรกรรม...</div>
+    </div>
+  </div>
+
+  <!-- verifications & activities -->
+  <div class="grid cols-2" style="margin-top:14px">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>รายการรอตรวจสอบการชำระเงิน</strong>
+        <div class="small muted">read-only</div>
+      </div>
+
+      <div id="verificationList" class="activities"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>กิจกรรมล่าสุด (Live Feed)</strong>
+        <div class="small muted">ระบบจะแสดง 50 รายการล่าสุด</div>
+      </div>
+
+      <div id="activities" class="activities"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal (transaction detail) -->
+<div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal" role="document">
+    <button class="close" id="modalClose">&times;</button>
+    <div id="modalContent">กำลังโหลด...</div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   CONFIG
+   ========================= */
+const API_BASE = "http://127.0.0.1:5000"; // ปรับถ้า backend อยู่ที่อื่น
+const POLL_INTERVAL = 7000;             // polling fallback (ms)
+const FEE_PER_TX = 50;                  // รายรับสุทธิต่อธุรกรรม completed
+
+/* =========================
+   STATE
+   ========================= */
+let socket = null;
+let lastActivities = []; // เก็บกิจกรรมล่าสุด
+let transactionsCache = []; // เก็บชุดธุรกรรมปัจจุบัน
+
+/* =========================
+   HELPERS
+   ========================= */
+const fmtTH = (n) => {
+  if (n == null) return "0";
+  return n.toLocaleString('th-TH');
+};
+const fmtMoney = (n) => `฿${(n || 0).toLocaleString('th-TH')}`;
+const fmtDate = (s) => s ? new Date(s).toLocaleString('th-TH') : '-';
+function createEl(tag, props={}, children=[]){
+  const el = document.createElement(tag);
+  Object.entries(props).forEach(([k,v]) => el.setAttribute(k,v));
+  children.forEach(c => typeof c === 'string' ? el.appendChild(document.createTextNode(c)) : el.appendChild(c));
+  return el;
+}
+function statusClass(status){
+  switch(status){
+    case 'waiting_buyer': return 'st-wait';
+    case 'waiting_payment': return 'st-wait';
+    case 'payment_verification': return 'st-wait';
+    case 'paid': return 'st-paid';
+    case 'delivering': return 'st-deliv';
+    case 'awaiting_seller_payment': return 'st-paid';
+    case 'completed': return 'st-complete';
+    case 'cancelled': return 'st-cancel';
+    default: return '';
+  }
+}
+function statusText(status){
+  const map = {
+    waiting_buyer: 'รอผู้ซื้อ',
+    waiting_payment: 'รอชำระเงิน',
+    payment_verification: 'รอตรวจสอบ',
+    paid: 'ชำระแล้ว',
+    delivering: 'กำลังส่ง',
+    awaiting_seller_payment: 'รอโอนให้ผู้ขาย',
+    completed: 'สำเร็จ',
+    cancelled: 'ยกเลิก'
+  };
+  return map[status] || status;
+}
+
+/* =========================
+   API (simple fetch wrappers)
+   ========================= */
+async function apiGet(path){
+  const res = await fetch(API_BASE + path, {headers:{'Accept':'application/json'}});
+  if(!res.ok) throw new Error(`${path} -> ${res.status}`);
+  return res.json();
+}
+
+/* =========================
+   RENDER: summary + charts
+   ========================= */
+let chartDaily = null, chartStatus = null;
+
+async function loadDashboard() {
+  try {
+    const data = await apiGet('/api/admin/dashboard');
+    // stats
+    document.getElementById('totalTx').textContent = fmtTH(data.totalTransactions || 0);
+    document.getElementById('pendingTx').textContent = fmtTH(data.pendingTransactions || 0);
+    document.getElementById('completedTx').textContent = fmtTH(data.charts?.statusData?.[ (data.charts?.statusLabels||[]).indexOf('completed') ] || 0);
+    const completedCount = (data.charts?.statusLabels && data.charts.statusLabels.indexOf('completed') >= 0) ? data.charts.statusData[data.charts.statusLabels.indexOf('completed')] : 0;
+    document.getElementById('netIncome').textContent = fmtMoney(completedCount * FEE_PER_TX);
+
+    // charts
+    renderDailyChart(data.charts?.dailyLabels || [], data.charts?.dailyData || []);
+    renderStatusChart(data.charts?.statusLabels || [], data.charts?.statusData || []);
+
+  } catch(err){
+    console.error('loadDashboard error', err);
+  }
+}
+
+function renderDailyChart(labels, values){
+  const ctx = document.getElementById('dailyChart');
+  if(chartDaily){
+    chartDaily.data.labels = labels;
+    chartDaily.data.datasets[0].data = values;
+    chartDaily.update();
+    return;
+  }
+  chartDaily = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label:'ธุรกรรมรายวัน', data: values, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,0.08)', fill:true }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}}
+  });
+}
+
+function renderStatusChart(labels, values){
+  const ctx = document.getElementById('statusChart');
+  if(chartStatus){
+    chartStatus.data.labels = labels;
+    chartStatus.data.datasets[0].data = values;
+    chartStatus.update();
+    return;
+  }
+  chartStatus = new Chart(ctx, {
+    type:'pie',
+    data:{ labels, datasets:[{ data: values, backgroundColor:['#f59e0b','#60a5fa','#a78bfa','#34d399','#22d3ee','#ef4444','#94a3b8'] }] },
+    options:{ responsive:true }
+  });
+}
+
+/* =========================
+   RENDER: transactions list + modal detail
+   ========================= */
+
+function renderTxList(txArray){
+  const wrap = document.getElementById('txList');
+  transactionsCache = txArray || [];
+  if(!txArray || !txArray.length){
+    wrap.innerHTML = '<div class="empty">ไม่พบธุรกรรม</div>';
+    return;
+  }
+
+  wrap.innerHTML = '';
+  txArray.forEach(tx => {
+    const row = createEl('div', {class:'tx-row'});
+    const idCell = createEl('div',{class:'tx-id mono'},[tx.transactionId || '-']);
+    const sellerCell = createEl('div',{},[createEl('div',{class:'tx-meta'},[tx.sellerId || '-']), createEl('div',{class:'small muted'}, [tx.gameDetails?.game || '-'])]);
+    const buyerCell = createEl('div',{},[createEl('div',{class:'tx-meta'},[tx.buyerId || '-']), createEl('div',{class:'small muted'}, [fmtDate(tx.updatedAt)])]);
+    const priceCell = createEl('div',{},[createEl('div',{class:'tx-meta'},[fmtMoney(tx.gameDetails?.price || tx.paymentAmount || 0)])]);
+    const statusCell = createEl('div',{},[ createEl('span',{class:`status-badge ${statusClass(tx.status)}`},[statusText(tx.status)]) ]);
+    // assemble
+    row.appendChild(idCell);
+    row.appendChild(sellerCell);
+    row.appendChild(buyerCell);
+    row.appendChild(priceCell);
+    row.appendChild(statusCell);
+    // click to open detail modal
+    row.style.cursor='pointer';
+    row.addEventListener('click', () => openTxModal(tx.transactionId));
+    wrap.appendChild(row);
+  });
+}
+
+async function openTxModal(txId){
+  try {
+    const data = await apiGet(`/api/admin/transactions/${txId}`);
+    const content = document.getElementById('modalContent');
+    content.innerHTML = `
+      <h3>รายละเอียดธุรกรรม <span class="mono">${data.transactionId}</span></h3>
+      <div style="display:flex;gap:12px;margin-top:8px">
+        <div style="flex:1">
+          <p><strong>ผู้ขาย:</strong> ${data.sellerId || '-'}</p>
+          <p><strong>ผู้ซื้อ:</strong> ${data.buyerId || '-'}</p>
+          <p><strong>เกม:</strong> ${data.gameDetails?.game || '-'}</p>
+          <p><strong>ระดับ:</strong> ${data.gameDetails?.level || '-'}</p>
+          <p><strong>ราคา:</strong> ${fmtMoney(data.gameDetails?.price || data.paymentAmount)}</p>
+          <p><strong>สถานะ:</strong> ${statusText(data.status)}</p>
+          <p><strong>สร้างเมื่อ:</strong> ${fmtDate(data.createdAt)}</p>
+          ${data.paidAt ? `<p><strong>วันที่ชำระ:</strong> ${fmtDate(data.paidAt)}</p>` : ''}
+        </div>
+        <div style="width:260px">
+          <p><strong>ข้อมูลบัญชีผู้ขาย</strong></p>
+          <p>${(data.sellerBankInfo && data.sellerBankInfo.accountName) ? `${data.sellerBankInfo.bankName} / ${data.sellerBankInfo.accountNumber}` : '- ไม่มีข้อมูล -'}</p>
+          ${data.paymentProof?.imageUrl ? `<p style="margin-top:8px"><img src="${data.paymentProof.imageUrl}" alt="proof" style="max-width:100%;border-radius:8px;border:1px solid rgba(15,23,42,0.06)"/></p>` : ''}
+        </div>
+      </div>
+    `;
+    document.getElementById('modalBackdrop').style.display = 'flex';
+  } catch(err){
+    console.error('openTxModal', err);
+    alert('ไม่สามารถโหลดรายละเอียดได้');
+  }
+}
+
+document.getElementById('modalClose').addEventListener('click', ()=> {
+  document.getElementById('modalBackdrop').style.display = 'none';
+});
+document.getElementById('modalBackdrop').addEventListener('click', (e)=> {
+  if(e.target === document.getElementById('modalBackdrop')) document.getElementById('modalBackdrop').style.display = 'none';
+});
+
+/* =========================
+   RENDER: verifications & activities
+   ========================= */
+
+function renderVerifications(list){
+  const el = document.getElementById('verificationList');
+  if(!list || !list.length){ el.innerHTML = '<div class="empty">ไม่มีรายการรอตรวจสอบ</div>'; return; }
+  el.innerHTML = '';
+  list.forEach(p => {
+    const item = createEl('div',{class:'act-item'});
+    const icon = createEl('div',{class:'icon'},['🔎']);
+    const body = createEl('div',{},[
+      createEl('div',{},[ createEl('strong',{},[`TX: `]), createEl('span',{class:'mono'},[p.transactionId]) ]),
+      createEl('div',{class:'small muted'},[`ผู้ซื้อ: ${p.buyerId || '-'} • จำนวน: ${fmtMoney(p.paymentAmount || p.gameDetails?.price)}`]),
+      p.paymentProof?.imageUrl ? createEl('div',{},[ createEl('img',{src:p.paymentProof.imageUrl, style:'max-width:220px;border-radius:8px;margin-top:8px'}) ]) : ''
+    ]);
+    item.appendChild(icon); item.appendChild(body);
+    el.appendChild(item);
+  });
+}
+
+function pushActivity(text, meta = {}){
+  const activitiesEl = document.getElementById('activities');
+  const item = createEl('div',{class:'act-item'});
+  const icon = createEl('div',{class:'icon'},[ meta.icon || '🔔' ]);
+  const body = createEl('div',{},[
+    createEl('div',{style:'font-weight:700'},[text]),
+    createEl('div',{class:'small muted'},[ meta.when ? fmtDate(meta.when) : new Date().toLocaleString() ])
+  ]);
+  item.appendChild(icon); item.appendChild(body);
+  activitiesEl.prepend(item);
+  // keep limit 50
+  while(activitiesEl.children.length > 50) activitiesEl.removeChild(activitiesEl.lastChild);
+}
+
+/* =========================
+   DATA LOADERS
+   ========================= */
+
+async function loadTransactionsPage1(){
+  try {
+    // read filters
+    const q = encodeURIComponent(document.getElementById('q').value.trim());
+    const status = document.getElementById('statusFilter').value;
+    const sort = document.getElementById('sortBy').value;
+
+    // build query params (backend should honor q, status, sort)
+    let url = `/api/admin/transactions?page=1`;
+    if(status && status !== 'all') url += `&status=${encodeURIComponent(status)}`;
+    if(q) url += `&q=${q}`;
+    if(sort) url += `&sort=${encodeURIComponent(sort)}`;
+
+    const res = await apiGet(url);
+    const txs = res.transactions || [];
+    renderTxList(txs);
+
+    // also refresh small stats derived from transactions
+    document.getElementById('currentSort').textContent = document.getElementById('sortBy').selectedOptions[0].text;
+
+    // update activities maybe
+    setTimeout(()=>{}, 0);
+  } catch(err){
+    console.error('loadTransactionsPage1', err);
+  }
+}
+
+async function loadVerifications(){
+  try {
+    const list = await apiGet('/api/admin/payments/verification');
+    renderVerifications(list);
+  } catch(err){
+    console.error('loadVerifications', err);
+  }
+}
+
+/* =========================
+   SOCKET: realtime updates
+   ========================= */
+
+function initSocket(){
+  try {
+    socket = io(API_BASE, { transports: ['websocket','polling'] });
+
+    socket.on('connect', () => {
+      document.getElementById('liveIndicator').innerHTML = 'Realtime: <strong>Socket</strong>';
+      console.info('socket connected', socket.id);
+    });
+
+    socket.on('disconnect', () => {
+      document.getElementById('liveIndicator').innerHTML = 'Realtime: <strong>Disconnected (polling)</strong>';
+      console.warn('socket disconnected');
+    });
+
+    // Expected event name: transaction:update (payload includes transactionId, status, ... )
+    socket.on('transaction:update', (payload) => {
+      // update transaction list (naive: reload page1)
+      loadTransactionsPage1().catch(()=>{});
+      loadDashboard().catch(()=>{});
+      loadVerifications().catch(()=>{});
+      pushActivity(`TX ${payload.transactionId} → ${statusText(payload.status)}`, {when:new Date(), icon:'🔁'});
+    });
+
+    // optional: server may emit activity logs
+    socket.on('activity', (a) => {
+      pushActivity(a.message || JSON.stringify(a), {when: a.when || new Date(), icon: a.icon});
+    });
+
+  } catch(err){
+    console.error('initSocket error', err);
+  }
+}
+
+/* =========================
+   POLLING fallback
+   ========================= */
+let pollTimer = null;
+function startPollingFallback(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(()=>{
+    // poll basic data if socket disconnected
+    if(!socket || socket.disconnected){
+      loadDashboard().catch(()=>{});
+      loadTransactionsPage1().catch(()=>{});
+      loadVerifications().catch(()=>{});
+    }
+  }, POLL_INTERVAL);
+}
+
+/* =========================
+   EVENTS
+   ========================= */
+document.getElementById('q').addEventListener('input', debounce(()=> loadTransactionsPage1(), 400));
+document.getElementById('statusFilter').addEventListener('change', ()=> loadTransactionsPage1());
+document.getElementById('sortBy').addEventListener('change', ()=> loadTransactionsPage1());
+document.getElementById('btnRefresh').addEventListener('click', ()=> {
+  loadDashboard(); loadTransactionsPage1(); loadVerifications();
+});
+
+/* =========================
+   UTIL: debounce
+   ========================= */
+function debounce(fn, wait=200){
+  let t;
+  return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), wait); };
+}
+
+/* =========================
+   BOOT: initial load
+   ========================= */
+(async function boot(){
+  loadDashboard();
+  loadTransactionsPage1();
+  loadVerifications();
+  initSocket();
+  startPollingFallback();
+})();
+</script>
+</body>
+</html>

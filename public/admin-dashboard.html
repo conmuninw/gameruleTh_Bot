@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Dashboard — Real-time Monitoring</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111a2c;
+      --muted:#9fb0d5;
+      --primary:#5b8def;
+      --accent:#22d3ee;
+      --danger:#ef4444;
+      --success:#10b981;
+      --warning:#f59e0b;
+      --card:#0f172a;
+      --border:#223050;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:linear-gradient(180deg,#0a0f1e 0%,#0b1220 100%);color:#e5edff;font-family:"Noto Sans Thai",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+    a{color:inherit}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border:1px solid var(--border);background:rgba(17,26,44,.7);backdrop-filter: blur(6px);
+      border-radius:16px;margin-bottom:16px
+    }
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand i{font-size:22px;color:var(--accent)}
+    .brand h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+    .subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+    .last-updated{font-size:12px;color:var(--muted)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{
+      border:1px solid var(--border);background:var(--panel);padding:8px 12px;border-radius:10px;
+      font-size:13px;color:#cfe0ff;cursor:pointer;transition:.2s;
+    }
+    .tab.active{background:linear-gradient(180deg,#162442,#111a2c);color:white;border-color:#2a3d66;box-shadow:0 0 0 1px rgba(91,141,239,.25) inset}
+    .grid{
+      display:grid;gap:16px
+    }
+    @media(min-width:900px){.grid.cols-4{grid-template-columns:repeat(4,1fr)}.grid.cols-2{grid-template-columns:repeat(2,1fr)}}
+    .card{
+      background:linear-gradient(180deg,#0e1630 0%,#0c1428 100%);
+      border:1px solid var(--border);border-radius:16px;padding:14px
+    }
+    .stat{
+      display:flex;align-items:center;justify-content:space-between;gap:12px
+    }
+    .stat .label{font-size:12px;color:var(--muted)}
+    .stat .value{font-size:22px;font-weight:700}
+    .stat .icon{
+      width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+      background:rgba(91,141,239,.15);border:1px solid #284070;color:#9cc0ff
+    }
+    .section-title{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 8px}
+    .section-title h3{margin:0;font-size:14px;color:#cfe0ff;font-weight:700;letter-spacing:.2px}
+    .hint{color:var(--muted);font-size:12px}
+    .table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    .table thead th{
+      text-align:left;font-size:12px;color:#a9bce9;font-weight:600;padding:8px 10px
+    }
+    .table tbody tr{
+      background:linear-gradient(180deg,#0e1833,#0b1429);border:1px solid var(--border)
+    }
+    .table tbody td{padding:10px;font-size:13px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+    .table tbody tr:first-child td{border-top-left-radius:12px;border-top-right-radius:12px}
+    .table tbody tr:last-child td{border-bottom-left-radius:12px;border-bottom-right-radius:12px}
+    .badge{
+      padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid var(--border);background:#0b162d
+    }
+    .s-waiting{color:#f0c36c;background:rgba(245,158,11,.08);border-color:#6a5116}
+    .s-verify{color:#60a5fa;background:rgba(59,130,246,.08);border-color:#1d3a73}
+    .s-paid{color:#34d399;background:rgba(16,185,129,.08);border-color:#0b5a45}
+    .s-delivering{color:#a78bfa;background:rgba(139,92,246,.08);border-color:#45308d}
+    .s-awaitpay{color:#22d3ee;background:rgba(34,211,238,.08);border-color:#165a64}
+    .s-completed{color:#10b981;background:rgba(16,185,129,.08);border-color:#0b5a45}
+    .s-cancelled{color:#ef4444;background:rgba(239,68,68,.08);border-color:#5f1c1c}
+    .list{
+      display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;padding-right:4px
+    }
+    .item{
+      display:flex;gap:10px;border:1px solid var(--border);border-radius:12px;padding:10px;background:#0c162c
+    }
+    .item .left i{font-size:18px;color:#99b9ff;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(91,141,239,.12);border:1px solid #2b4270;border-radius:10px}
+    .item .body{flex:1}
+    .item .body .title{font-weight:700;font-size:13px;margin-bottom:2px}
+    .item .body .sub{font-size:12px;color:var(--muted)}
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .chart-wrap{padding:6px;border:1px dashed #284070;border-radius:12px;background:#0b142a}
+    .footer-note{margin-top:10px;color:#89a2d8;font-size:11px;text-align:right}
+    .empty{padding:18px;border:1px dashed #29426f;border-radius:12px;color:#9fb0d5;text-align:center;background:#0c1530}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <i class="fa-solid fa-gauge-high"></i>
+        <div>
+          <h1>Admin Dashboard</h1>
+          <div class="subtitle">Real-time Monitoring (no approvals)</div>
+        </div>
+      </div>
+      <div class="last-updated">อัปเดตล่าสุด: <span id="lastUpdated">—</span></div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="dashboard"><i class="fa-solid fa-chart-line"></i>&nbsp;สรุปภาพรวม</button>
+      <button class="tab" data-tab="transactions"><i class="fa-solid fa-receipt"></i>&nbsp;ธุรกรรมล่าสุด</button>
+      <button class="tab" data-tab="verifications"><i class="fa-solid fa-shield-check"></i>&nbsp;รอตรวจสอบ</button>
+      <button class="tab" data-tab="users"><i class="fa-solid fa-users"></i>&nbsp;ผู้ใช้งาน</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab-panel" style="margin-top:12px;">
+      <div class="grid cols-4">
+        <div class="card">
+          <div class="stat">
+            <div>
+              <div class="label">รายได้รวม</div>
+              <div class="value" id="statIncome">0 บาท</div>
+            </div>
+            <div class="icon"><i class="fa-solid fa-sack-dollar"></i></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="stat">
+            <div>
+              <div class="label">จำนวนธุรกรรม</div>
+              <div class="value" id="statTx">0</div>
+            </div>
+            <div class="icon"><i class="fa-solid fa-receipt"></i></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="stat">
+            <div>
+              <div class="label">รอตรวจสอบ</div>
+              <div class="value" id="statPending">0</div>
+            </div>
+            <div class="icon"><i class="fa-solid fa-hourglass-half"></i></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="stat">
+            <div>
+              <div class="label">ผู้ใช้ทั้งหมด</div>
+              <div class="value" id="statUsers">0</div>
+            </div>
+            <div class="icon"><i class="fa-solid fa-users"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid cols-2" style="margin-top:16px;">
+        <div class="card">
+          <div class="section-title"><h3>ธุรกรรมรายวัน (7 วัน)</h3><div class="hint">อัปเดตอัตโนมัติ</div></div>
+          <div class="chart-wrap"><canvas id="dailyChart" height="140"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-title"><h3>สัดส่วนสถานะธุรกรรม</h3><div class="hint">ภาพรวม ณ ตอนนี้</div></div>
+          <div class="chart-wrap"><canvas id="statusChart" height="140"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="section-title"><h3>กิจกรรมล่าสุด</h3><div class="hint">Live feed</div></div>
+        <div id="activities" class="list"></div>
+        <div class="footer-note">* ข้อมูลจะรีเฟรชอัตโนมัติทุก 5 วินาที</div>
+      </div>
+    </section>
+
+    <!-- TRANSACTIONS -->
+    <section id="tab-transactions" class="tab-panel" style="display:none;margin-top:12px;">
+      <div class="card">
+        <div class="section-title">
+          <h3>ธุรกรรมล่าสุด</h3>
+          <div class="hint">เรียงจากใหม่ → เก่า</div>
+        </div>
+        <div style="overflow:auto">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Transaction ID</th>
+                <th>ผู้ขาย</th>
+                <th>ผู้ซื้อ</th>
+                <th>เกม</th>
+                <th>ราคา</th>
+                <th>สถานะ</th>
+                <th>สร้างเมื่อ</th>
+              </tr>
+            </thead>
+            <tbody id="txBody">
+              <tr><td colspan="7"><div class="empty">กำลังโหลด...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VERIFICATIONS (read-only) -->
+    <section id="tab-verifications" class="tab-panel" style="display:none;margin-top:12px;">
+      <div class="card">
+        <div class="section-title">
+          <h3>รายการรอตรวจสอบการชำระเงิน</h3>
+          <div class="hint">แสดงข้อมูลตามจริงจากฐานข้อมูล</div>
+        </div>
+        <div id="verificationList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section id="tab-users" class="tab-panel" style="display:none;margin-top:12px;">
+      <div class="card">
+        <div class="section-title">
+          <h3>ผู้ใช้งาน</h3>
+          <div class="hint">ภาพรวมผู้ขาย/ผู้ซื้อ</div>
+        </div>
+        <div style="overflow:auto">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>ประเภท</th>
+                <th>จำนวนธุรกรรม</th>
+                <th>มูลค่ารวม</th>
+                <th>สมัครเมื่อ</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr><td colspan="6"><div class="empty">กำลังโหลด...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ======= CONFIG =======
+    const API_BASE = "http://127.0.0.1:5000";
+    const POLL_MS  = 5000;
+
+    // ======= STATE =======
+    let charts = {
+      daily: null,
+      status: null
+    };
+
+    // ======= HELPERS =======
+    const THB = n => (n ?? 0).toLocaleString("th-TH") + " บาท";
+    const fmtDate = s => s ? new Date(s).toLocaleString("th-TH") : "-";
+
+    function statusBadge(status){
+      const map = {
+        waiting_buyer:  { text:"รอผู้ซื้อ",           cls:"s-waiting" },
+        waiting_payment:{ text:"รอชำระเงิน",         cls:"s-waiting" },
+        payment_verification:{ text:"รอตรวจสอบ",    cls:"s-verify" },
+        paid:{ text:"ชำระเงินแล้ว",                   cls:"s-paid" },
+        delivering:{ text:"กำลังส่ง",                 cls:"s-delivering" },
+        awaiting_seller_payment:{ text:"รอโอนให้ผู้ขาย", cls:"s-awaitpay" },
+        completed:{ text:"เสร็จสิ้น",                 cls:"s-completed" },
+        cancelled:{ text:"ยกเลิก",                   cls:"s-cancelled" }
+      };
+      const d = map[status] || {text:status,cls:""};
+      return `<span class="badge ${d.cls}">${d.text}</span>`;
+    }
+
+    async function api(path){
+      const res = await fetch(API_BASE + path, { headers:{ "Content-Type":"application/json" }});
+      if(!res.ok) throw new Error(path + " -> " + res.status);
+      return res.json();
+    }
+
+    function setLastUpdated(){
+      document.getElementById("lastUpdated").textContent = new Date().toLocaleString("th-TH");
+    }
+
+    // ======= DASHBOARD LOAD =======
+    async function loadDashboard(){
+      try{
+        const data = await api("/api/admin/dashboard");
+
+        // Stats
+        document.getElementById("statIncome").textContent = THB(data.totalIncome || 0);
+        document.getElementById("statTx").textContent = (data.totalTransactions ?? 0).toLocaleString("th-TH");
+        document.getElementById("statPending").textContent = (data.pendingTransactions ?? 0).toLocaleString("th-TH");
+        document.getElementById("statUsers").textContent = (data.totalUsers ?? 0).toLocaleString("th-TH");
+
+        // Charts
+        const dailyLabels = data.charts?.dailyLabels || [];
+        const dailyData   = data.charts?.dailyData   || [];
+        const statusLabels= data.charts?.statusLabels|| [];
+        const statusData  = data.charts?.statusData  || [];
+
+        renderDailyChart(dailyLabels, dailyData);
+        renderStatusChart(statusLabels, statusData);
+
+        // Activities
+        renderActivities(data.recentActivities || []);
+
+        setLastUpdated();
+      }catch(err){
+        console.error("Dashboard error:", err);
+      }
+    }
+
+    function renderDailyChart(labels, dataset){
+      const ctx = document.getElementById("dailyChart");
+      if(charts.daily){
+        charts.daily.data.labels = labels;
+        charts.daily.data.datasets[0].data = dataset;
+        charts.daily.update();
+        return;
+      }
+      charts.daily = new Chart(ctx, {
+        type:"line",
+        data:{
+          labels,
+          datasets:[{
+            label:"ธุรกรรมรายวัน",
+            data: dataset,
+            borderWidth:2,
+            fill:true,
+            borderColor:"#5b8def",
+            backgroundColor:"rgba(91,141,239,.12)",
+            pointRadius:3,
+            pointHoverRadius:4,
+            tension:.3
+          }]
+        },
+        options:{
+          responsive:true,
+          scales:{
+            x:{ ticks:{ color:"#9fb0d5"} , grid:{ color:"rgba(51,77,119,.25)"}},
+            y:{ ticks:{ color:"#9fb0d5"} , grid:{ color:"rgba(51,77,119,.25)"}}
+          },
+          plugins:{ legend:{ labels:{ color:"#cfe0ff"} } }
+        }
+      });
+    }
+
+    function renderStatusChart(labels, dataset){
+      const ctx = document.getElementById("statusChart");
+      if(charts.status){
+        charts.status.data.labels = labels;
+        charts.status.data.datasets[0].data = dataset;
+        charts.status.update();
+        return;
+      }
+      charts.status = new Chart(ctx, {
+        type:"pie",
+        data:{
+          labels,
+          datasets:[{
+            data: dataset,
+            backgroundColor:["#5b8def","#f59e0b","#10b981","#a78bfa","#22d3ee","#ef4444","#64748b"],
+            borderColor:"#0a1330",
+            borderWidth:1
+          }]
+        },
+        options:{
+          plugins:{
+            legend:{ position:"bottom", labels:{ color:"#cfe0ff" } }
+          }
+        }
+      });
+    }
+
+    function renderActivities(activities){
+      const el = document.getElementById("activities");
+      if(!activities.length){
+        el.innerHTML = `<div class="empty">ยังไม่มีกิจกรรมล่าสุด</div>`;
+        return;
+      }
+      el.innerHTML = activities.map(a => `
+        <div class="item">
+          <div class="left"><i class="fa-solid fa-${a.icon || "bell"}"></i></div>
+          <div class="body">
+            <div class="title">${a.message || "-"}</div>
+            <div class="sub">${fmtDate(a.timestamp)}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // ======= TRANSACTIONS LOAD =======
+    async function loadTransactions(){
+      try{
+        // เรียกหน้า 1 แบบเรียลไทม์ (ใหม่ → เก่า) ให้ backend จัดเรียง createdAt -1
+        const res = await api("/api/admin/transactions?page=1&status=all");
+        const rows = res.transactions || [];
+        const tbody = document.getElementById("txBody");
+
+        if(!rows.length){
+          tbody.innerHTML = `<tr><td colspan="7"><div class="empty">ไม่พบธุรกรรม</div></td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rows.map(t => `
+          <tr>
+            <td class="mono">${t.transactionId}</td>
+            <td class="mono">${t.sellerId}</td>
+            <td class="mono">${t.buyerId || "-"}</td>
+            <td>${t.gameDetails?.game || "-"}</td>
+            <td>${THB(t.gameDetails?.price)}</td>
+            <td>${statusBadge(t.status)}</td>
+            <td>${fmtDate(t.createdAt)}</td>
+          </tr>
+        `).join("");
+
+        setLastUpdated();
+      }catch(err){
+        console.error("Transactions error:", err);
+      }
+    }
+
+    // ======= VERIFICATIONS (READ ONLY) =======
+    async function loadVerifications(){
+      try{
+        const list = await api("/api/admin/payments/verification");
+        const box = document.getElementById("verificationList");
+
+        if(!list.length){
+          box.innerHTML = `<div class="empty">ไม่มีรายการรอตรวจสอบ</div>`;
+          return;
+        }
+
+        box.innerHTML = list.map(p => `
+          <div class="item">
+            <div class="left"><i class="fa-solid fa-shield-check"></i></div>
+            <div class="body">
+              <div class="title">TX: <span class="mono">${p.transactionId}</span> • ผู้ซื้อ: <span class="mono">${p.buyerId || "-"}</span></div>
+              <div class="sub">จำนวนเงิน: ${THB(p.paymentAmount ?? p.gameDetails?.price)} | ชำระเมื่อ: ${fmtDate(p.paidAt || p.paymentProof?.uploadedAt)}</div>
+              ${p?.paymentProof?.imageUrl ? `<div style="margin-top:8px"><img src="${p.paymentProof.imageUrl}" alt="หลักฐานการโอน" style="max-width:260px;border-radius:10px;border:1px solid #284070"/></div>` : ``}
+            </div>
+          </div>
+        `).join("");
+
+        setLastUpdated();
+      }catch(err){
+        console.error("Verifications error:", err);
+      }
+    }
+
+    // ======= USERS =======
+    async function loadUsers(){
+      try{
+        const users = await api("/api/admin/users");
+        const tbody = document.getElementById("usersBody");
+
+        if(!users.length){
+          tbody.innerHTML = `<tr><td colspan="6"><div class="empty">ไม่พบข้อมูลผู้ใช้งาน</div></td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = users.map(u => `
+          <tr>
+            <td class="mono">${u.userId}</td>
+            <td>${u.type === "seller" ? "ผู้ขาย" : "ผู้ซื้อ"}</td>
+            <td>${(u.transactionCount ?? 0).toLocaleString("th-TH")}</td>
+            <td>${THB(u.totalAmount)}</td>
+            <td>${fmtDate(u.createdAt)}</td>
+            <td>
+              <span class="badge ${u.status === "active" ? "s-completed" : "s-cancelled"}">
+                ${u.status === "active" ? "ใช้งาน" : "ปิดใช้งาน"}
+              </span>
+            </td>
+          </tr>
+        `).join("");
+
+        setLastUpdated();
+      }catch(err){
+        console.error("Users error:", err);
+      }
+    }
+
+    // ======= TABS =======
+    function initTabs(){
+      const allTabs = Array.from(document.querySelectorAll(".tab"));
+      const panels = {
+        dashboard: document.getElementById("tab-dashboard"),
+        transactions: document.getElementById("tab-transactions"),
+        verifications: document.getElementById("tab-verifications"),
+        users: document.getElementById("tab-users"),
+      };
+
+      function show(tab){
+        allTabs.forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+        Object.entries(panels).forEach(([k,el]) => el.style.display = (k===tab ? "block" : "none"));
+      }
+
+      document.getElementById("tabs").addEventListener("click", e => {
+        const btn = e.target.closest(".tab");
+        if(!btn) return;
+        show(btn.dataset.tab);
+
+        // โหลดข้อมูลของแท็บนั้นทันที
+        if(btn.dataset.tab === "dashboard") loadDashboard();
+        if(btn.dataset.tab === "transactions") loadTransactions();
+        if(btn.dataset.tab === "verifications") loadVerifications();
+        if(btn.dataset.tab === "users") loadUsers();
+      });
+
+      show("dashboard");
+    }
+
+    // ======= POLLING LOOP =======
+    function startPolling(){
+      // ดึงทุกส่วนให้สดใหม่เสมอ (อ่านอย่างเดียวทั้งหมด)
+      setInterval(() => {
+        const visible = document.querySelector(".tab.active")?.dataset.tab;
+        // โหลดเสมอทุกส่วนพื้นฐาน เพื่อให้กราฟ/สถิติสด
+        loadDashboard();
+
+        // ส่วนที่เหลือโหลดตามแท็บปัจจุบันเพื่อประหยัด
+        if(visible === "transactions") loadTransactions();
+        if(visible === "verifications") loadVerifications();
+        if(visible === "users") loadUsers();
+      }, POLL_MS);
+    }
+
+    // ======= BOOT =======
+    (function boot(){
+      initTabs();
+      // โหลดครั้งแรก
+      loadDashboard();
+      loadTransactions();
+      loadVerifications();
+      loadUsers();
+      // เริ่มโพลลิ่ง
+      startPolling();
+    })();
+  </script>
+</body>
+</html>
